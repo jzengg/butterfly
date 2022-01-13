@@ -17,8 +17,11 @@ DB_NAME = os.environ.get('DB_NAME')
 def hello_world():
     return "<p>Hello, World!</p>"
 
-if __name__ == '__main__':
-  print('hello')
+# if __name__ == '__main__':
+  # print('hello')
   # app.run(host='0.0.0.0', port=30006, debug=True)
 
-engine = create_engine(f'mysql+pymysql://{DB_USER}:{DB_PASSWORD}@{DB_HOSTNAME}:{DB_PORT}/{DB_NAME}')
+engine = create_engine(f'mysql+pymysql://{DB_USER}:{DB_PASSWORD}@{DB_HOSTNAME}:{DB_PORT}/{DB_NAME}', echo=True, future=True)
+with engine.connect() as conn:
+  result = conn.execute(text("select 'hello world'"))
+  print(result.all())
