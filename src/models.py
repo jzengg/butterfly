@@ -13,11 +13,11 @@ class Butterfly(Base):
 class Match(Base):
     __tablename__ = 'matches'
     id = Column(Integer, primary_key=True)
-    timestamp = Column(DateTime, nullable=False)
+    timestamp = Column(DateTime, nullable=False, server_default=func.now())
     voter_ip = Column(String(255), nullable=False)
-    player_id = Column(Integer, nullable=False)
-    opponent_id = Column(Integer, nullable=False)
-    player_initial_rating = Column(Integer, nullable=False)
-    player_final_rating = Column(Integer, nullable=False)
-    opponent_initial_rating = Column(Integer, nullable=False)
-    opponent_final_rating = Column(Integer, nullable=False)
+    winner_id = Column(Integer, nullable=False)
+    loser_id = Column(Integer, nullable=False)
+    winner_initial_rating = Column(Integer, nullable=False)
+    winner_final_rating = Column(Integer, nullable=False)
+    loser_initial_rating = Column(Integer, nullable=False)
+    loser_final_rating = Column(Integer, nullable=False)
