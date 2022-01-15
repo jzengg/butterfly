@@ -11,6 +11,7 @@ def hello_world():
 # if __name__ == '__main__':
   # print('hello')
   # app.run(host='0.0.0.0', port=30006, debug=True)
+# print(get_engine_url())
 
 engine = create_engine(get_engine_url(), echo=True, future=True)
 with engine.connect() as conn:
