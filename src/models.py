@@ -7,7 +7,8 @@ class Butterfly(Base):
     __tablename__ = 'butterflies'
     id = Column(Integer, primary_key=True)
     rating = Column(Integer, index=True, nullable=False)
-    # image_url = Column(String)
+    name = Column(String(255), nullable=False, index=True)
+    image_url = Column(String(1000), nullable=False)
 
 class Match(Base):
     __tablename__ = 'matches'
