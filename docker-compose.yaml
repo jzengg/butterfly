@@ -5,16 +5,23 @@ services:
     ports:
       - "5001:5000"
     depends_on:
-        - db
+      - db
     links:
-        - db
-    # volumes:
+      - db
+    environment:
+      - DB_HOSTNAME=db
+      - DB_USER=peach
+      - DB_PASSWORD=woody
+      - DB_PORT=3306
+      - DB_NAME=hotornot
+    volumes:
+      - ./src:/app
     #   - .:/code
     #   - logvolume01:/var/log
   db:
     image: mysql:8.0.27
     ports:
-        - "3306:3306"
+      - "3306:3306"
     environment:
       - MYSQL_ROOT_PASSWORD=peachopotato
       - MYSQL_DATABASE=hotornot

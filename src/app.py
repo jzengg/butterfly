@@ -6,12 +6,10 @@ app = Flask(__name__)
 
 @app.route("/")
 def hello_world():
-    return "<p>Hello, World!</p>"
+    return "<p>Hello, World! allison is here</p>"
 
-# if __name__ == '__main__':
-  # print('hello')
-  # app.run(host='0.0.0.0', port=30006, debug=True)
-# print(get_engine_url())
+if __name__ == '__main__':
+  app.run(host='0.0.0.0', port=5000, debug=True)
 
 engine = create_engine(get_engine_url(), echo=True, future=True)
 with engine.connect() as conn:
