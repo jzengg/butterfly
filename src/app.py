@@ -12,6 +12,13 @@ CORS(app)
 def hello_world():
     return "<p>Hello, World! allison is here</p>"
 
+@app.route("/leaderboard", methods=["GET"])
+def get_leaderboard():
+  with Session() as session:
+    butterflies = session.query(Butterfly).order_by(Butterfly.rating.desc()).limit(50).all()
+  response = {'leaderboard': [serialize_butterfly(butterfly) for butterfly in butterflies]}
+  return jsonify(response)
+
 @app.route("/match", methods=["POST"])
 def create_match():
   with Session() as session:
