@@ -9,6 +9,7 @@ DB_PASSWORD = os.environ.get("DB_PASSWORD")
 DB_PORT = os.environ.get("DB_PORT")
 DB_NAME = os.environ.get("DB_NAME")
 ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD")
+API_KEY = os.environ.get("API_KEY")
 
 
 def get_engine_url():

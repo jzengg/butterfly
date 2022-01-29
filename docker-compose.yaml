@@ -15,6 +15,7 @@ services:
       - DB_PORT=3306
       - DB_NAME=hotornot
       - ADMIN_PASSWORD=dev
+      - API_KEY=devisfree
     volumes:
       - ./src:/app
     #   - .:/code

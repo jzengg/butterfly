@@ -3,8 +3,10 @@ from models import Butterfly, Match
 from elo import get_new_rating
 from db import Session
 from sqlalchemy.sql import func
-from config import ADMIN_PASSWORD
+from config import ADMIN_PASSWORD, API_KEY
 from flask_cors import CORS
+from functools import wraps
+from flask import request, abort
 
 INITIAL_RATING = 1600
 DEFAULT_LEADERBOARD_LIMIT = 50
@@ -13,13 +15,26 @@ MATCHUP_THRESHOLD = 30
 app = Flask(__name__)
 CORS(app)
 
+# The actual decorator function
+def require_appkey(view_function):
+    @wraps(view_function)
+    # the new, post-decoration function. Note *args and **kwargs here.
+    def decorated_function(*args, **kwargs):
+        if request.args.get('apikey') and request.args.get('apikey') == API_KEY:
+            return view_function(*args, **kwargs)
+        else:
+            abort(401)
+    return decorated_function
+
 
 @app.route("/")
+@require_appkey
 def hello_world():
     return "<p>Hello, World! allison is here</p>"
 
 
 @app.route("/admin/reset_data", methods=["POST"])
+@require_appkey
 def reset_data():
     data = request.get_json()
     if data and data["admin_pw"] == ADMIN_PASSWORD:
@@ -33,6 +48,7 @@ def reset_data():
 
 
 @app.route("/leaderboard", methods=["GET"])
+@require_appkey
 def get_leaderboard():
     args = request.args
     count = args.get("count") or 50
@@ -50,6 +66,7 @@ def get_leaderboard():
 
 
 @app.route("/matches", methods=["GET"])
+@require_appkey
 def get_matches():
     args = request.args
     count = args.get("count") or 50
@@ -62,6 +79,7 @@ def get_matches():
 
 
 @app.route("/match", methods=["POST"])
+@require_appkey
 def create_match():
     with Session() as session:
         player = session.query(Butterfly).order_by(func.random()).first()
@@ -92,6 +110,7 @@ def create_match():
 
 
 @app.route("/match_result", methods=["POST"])
+@require_appkey
 def create_match_result():
     data = request.get_json()
     winner_id = data["winner_id"]
