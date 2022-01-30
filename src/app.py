@@ -75,7 +75,9 @@ def get_matches():
         matches = (
             session.query(Match).order_by(Match.timestamp.desc()).limit(count).all()
         )
-    response = {"matches": [serialize_match(m) for m in matches]}
+        butterflies = session.query(Butterfly).all()
+        butterfly_id_to_name = {b.id: b.name for b in butterflies}
+    response = {"matches": [serialize_match(m, butterfly_id_to_name) for m in matches]}
     return jsonify(response)
 
 
@@ -162,12 +164,14 @@ def serialize_butterfly(butterfly):
     return props
 
 
-def serialize_match(match):
+def serialize_match(match, butterfly_id_to_name):
     props = {
         "timestamp": match.timestamp,
         "session_id": match.session_id,
         "winner_id": match.winner_id,
+        "winner_name": butterfly_id_to_name.get(match.winner_id),
         "loser_id": match.loser_id,
+        "loser_name": butterfly_id_to_name.get(match.loser_id),
         "winner_initial_rating": match.winner_initial_rating,
         "winner_final_rating": match.winner_final_rating,
         "loser_initial_rating": match.loser_initial_rating,
