@@ -7,6 +7,7 @@ from config import ADMIN_PASSWORD, API_KEY
 from flask_cors import CORS
 from functools import wraps
 from flask import request, abort
+from waitress import serve
 
 INITIAL_RATING = 1600
 DEFAULT_LEADERBOARD_LIMIT = 50
@@ -176,4 +177,5 @@ def serialize_match(match):
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000, debug=True)
+    serve(app, host='0.0.0.0', port=5000)
+    # app.run(host="0.0.0.0", port=5000, debug=True)
