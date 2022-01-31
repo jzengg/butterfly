@@ -119,6 +119,7 @@ def create_match_result():
     winner_id = data["winner_id"]
     loser_id = data["loser_id"]
     session_id = data["session_id"]
+    voter_ip = data["voter_ip"]
     with Session() as session, session.begin():
         winner = session.query(Butterfly).get(winner_id)
         loser = session.query(Butterfly).get(loser_id)
@@ -136,6 +137,7 @@ def create_match_result():
         )
         match = Match(
             session_id=session_id,
+            voter_ip=voter_ip,
             winner_id=winner.id,
             loser_id=loser.id,
             winner_initial_rating=old_winner_rating,
@@ -168,6 +170,7 @@ def serialize_match(match, butterfly_id_to_data):
     props = {
         "timestamp": match.timestamp,
         "session_id": match.session_id,
+        "voter_ip": match.voter_ip,
         "winner_id": match.winner_id,
         "winner": serialize_butterfly(butterfly_id_to_data.get(match.winner_id)),
         "loser_id": match.loser_id,

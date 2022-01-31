@@ -17,6 +17,7 @@ class Match(Base):
     id = Column(Integer, primary_key=True)
     timestamp = Column(DateTime, nullable=False, server_default=func.now())
     session_id = Column(String(255), nullable=False, index=True)
+    voter_ip = Column(String(255), nullable=False)
     winner_id = Column(Integer, nullable=False)
     loser_id = Column(Integer, nullable=False)
     winner_initial_rating = Column(Integer, nullable=False)
