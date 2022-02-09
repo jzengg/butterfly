@@ -27,3 +27,4 @@ class Match(Base):
     winner_final_rating = Column(Integer, nullable=False)
     loser_initial_rating = Column(Integer, nullable=False)
     loser_final_rating = Column(Integer, nullable=False)
+    position = Column(Integer, nullable=False)
