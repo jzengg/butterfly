@@ -136,13 +136,11 @@ def create_match_result():
         old_winner_rating = winner.rating
         old_loser_rating = loser.rating
         comment = ""
-        is_voting_too_frequently = is_user_voting_too_frequently(session, session_id)
-        is_voting_in_same_position = is_user_voting_same_position(session, session_id, position)
+        is_voting_too_frequently, too_frequent_comment = is_user_voting_too_frequently(session, session_id)
+        is_voting_in_same_position, same_position_comment = is_user_voting_same_position(session, session_id, position)
         if (is_voting_in_same_position or is_voting_too_frequently):
-            if (is_voting_in_same_position):
-                comment += "vote invalid due to voting same position repeatedly."
-            if (is_voting_too_frequently):
-                comment += "vote invalid due to voting too frequently"
+            comment += too_frequent_comment
+            comment += same_position_comment
             new_winner_rating = old_winner_rating
             new_loser_rating = old_loser_rating
         else:
@@ -182,21 +180,22 @@ def create_match_result():
 
 def is_user_voting_too_frequently(session, session_id):
     voter_matches = session.query(Match).filter(Match.session_id == session_id).order_by(Match.timestamp.desc()).limit(NUM_MATCH_LOOKBACK)
-    if voter_matches.count() == 0:
-        return False
+    if voter_matches.count() < NUM_MATCH_LOOKBACK:
+        return (False, "not enough matches to check for frequency")
     now = datetime.datetime.now()
     total_elapsed_time = now - voter_matches[-1].timestamp
-    if total_elapsed_time.total_seconds() < MIN_MATCH_LOOKBACK_DURATION_SECONDS:
-        return True
-    return False
+    elapsed_seconds = total_elapsed_time.total_seconds()
+    if elapsed_seconds < MIN_MATCH_LOOKBACK_DURATION_SECONDS:
+        return (True, f'vote invalid due to voting too frequently. total elapsed seconds: {elapsed_seconds}')
+    return (False, "")
 
 def is_user_voting_same_position(session, session_id, position):
     voter_matches = session.query(Match).filter(Match.session_id == session_id).order_by(Match.timestamp.desc()).limit(NUM_MATCH_LOOKBACK)
     if voter_matches.count() < NUM_MATCH_LOOKBACK:
-        return False
+        return (False, "not enough matches to check for repeated position")
     if len(set(m.position for m in voter_matches)) <= 1 and voter_matches[-1].position == position:
-        return True
-    return False
+        return (True, f'vote invalid due to voting the same position repeatedly. position: {position}')
+    return (False, "")
 
 def serialize_butterfly(butterfly):
     props = {
