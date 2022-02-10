@@ -138,7 +138,7 @@ def create_match_result():
         comment = ""
         is_voting_too_frequently = is_user_voting_too_frequently(session, session_id)
         is_voting_in_same_position = is_user_voting_same_position(session, session_id, position)
-        if (is_voting_in_same_position or is_voting_in_same_position):
+        if (is_voting_in_same_position or is_voting_too_frequently):
             if (is_voting_in_same_position):
                 comment += "vote invalid due to voting same position repeatedly."
             if (is_voting_too_frequently):
