@@ -7,11 +7,17 @@ from config import ADMIN_PASSWORD, API_KEY
 from flask_cors import CORS
 from functools import wraps
 from flask import request, abort
+import datetime
 from waitress import serve
 
 INITIAL_RATING = 1600
 DEFAULT_LEADERBOARD_LIMIT = 50
 MATCHUP_THRESHOLD = 30
+# how many matches to look back when checking for fraudulent voting
+NUM_MATCH_LOOKBACK = 9
+# min amount of time that should pass for the number of matches we're looking back
+# to detect voting too frequently
+MIN_MATCH_LOOKBACK_DURATION_SECONDS = 5
 
 app = Flask(__name__)
 CORS(app)
@@ -129,20 +135,32 @@ def create_match_result():
         loser = session.query(Butterfly).get(loser_id)
         old_winner_rating = winner.rating
         old_loser_rating = loser.rating
-        new_winner_rating = get_new_rating(
-            opponent_rating=old_loser_rating,
-            player_rating=old_winner_rating,
-            player_won=True,
-        )
-        new_loser_rating = get_new_rating(
-            opponent_rating=old_winner_rating,
-            player_rating=old_loser_rating,
-            player_won=False,
-        )
+        comment = ""
+        is_voting_too_frequently = is_user_voting_too_frequently(session, session_id)
+        is_voting_in_same_position = is_user_voting_same_position(session, session_id, position)
+        if (is_voting_in_same_position or is_voting_in_same_position):
+            if (is_voting_in_same_position):
+                comment += "vote invalid due to voting same position repeatedly."
+            if (is_voting_too_frequently):
+                comment += "vote invalid due to voting too frequently"
+            new_winner_rating = old_winner_rating
+            new_loser_rating = old_loser_rating
+        else:
+            new_winner_rating = get_new_rating(
+                opponent_rating=old_loser_rating,
+                player_rating=old_winner_rating,
+                player_won=True,
+            )
+            new_loser_rating = get_new_rating(
+                opponent_rating=old_winner_rating,
+                player_rating=old_loser_rating,
+                player_won=False,
+            )
         match = Match(
             session_id=session_id,
             voter_ip=voter_ip,
             position=position,
+            comment=comment,
             country=country,
             region=region,
             city=city,
@@ -159,10 +177,26 @@ def create_match_result():
         response = {
             "winner": serialize_butterfly(winner),
             "loser": serialize_butterfly(loser),
-            "rating_change": new_winner_rating - old_winner_rating,
         }
     return jsonify(response)
 
+def is_user_voting_too_frequently(session, session_id):
+    voter_matches = session.query(Match).filter(Match.session_id == session_id).order_by(Match.timestamp.desc()).limit(NUM_MATCH_LOOKBACK)
+    if voter_matches.count() == 0:
+        return False
+    now = datetime.datetime.now()
+    total_elapsed_time = now - voter_matches[-1].timestamp
+    if total_elapsed_time.total_seconds() < MIN_MATCH_LOOKBACK_DURATION_SECONDS:
+        return True
+    return False
+
+def is_user_voting_same_position(session, session_id, position):
+    voter_matches = session.query(Match).filter(Match.session_id == session_id).order_by(Match.timestamp.desc()).limit(NUM_MATCH_LOOKBACK)
+    if voter_matches.count() < NUM_MATCH_LOOKBACK:
+        return False
+    if len(set(m.position for m in voter_matches)) <= 1 and voter_matches[-1].position == position:
+        return True
+    return False
 
 def serialize_butterfly(butterfly):
     props = {
@@ -179,6 +213,7 @@ def serialize_match(match, butterfly_id_to_data):
         "timestamp": match.timestamp,
         "session_id": match.session_id,
         "voter_ip": match.voter_ip,
+        "comment": match.comment,
         "position": match.position,
         "city": match.city,
         "country": match.country,
@@ -196,5 +231,5 @@ def serialize_match(match, butterfly_id_to_data):
 
 
 if __name__ == "__main__":
-    serve(app, host='0.0.0.0', port=5000)
-    # app.run(host="0.0.0.0", port=5000, debug=True)
+    # serve(app, host='0.0.0.0', port=5000)
+    app.run(host="0.0.0.0", port=5000, debug=True)
