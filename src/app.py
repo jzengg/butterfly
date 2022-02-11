@@ -1,4 +1,4 @@
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, send_file
 from models import Butterfly, Match
 from elo import get_new_rating
 from db import Session
@@ -9,6 +9,8 @@ from functools import wraps
 from flask import request, abort
 import datetime
 from waitress import serve
+import csv
+import io
 
 INITIAL_RATING = 1600
 DEFAULT_LEADERBOARD_LIMIT = 50
@@ -27,10 +29,11 @@ def require_appkey(view_function):
     @wraps(view_function)
     # the new, post-decoration function. Note *args and **kwargs here.
     def decorated_function(*args, **kwargs):
-        if request.args.get('apikey') and request.args.get('apikey') == API_KEY:
+        if request.args.get("apikey") and request.args.get("apikey") == API_KEY:
             return view_function(*args, **kwargs)
         else:
             abort(401)
+
     return decorated_function
 
 
@@ -59,6 +62,7 @@ def reset_data():
 def get_leaderboard():
     args = request.args
     count = args.get("count") or 50
+    response_format = args.get("format")
     with Session() as session:
         butterflies = (
             session.query(Butterfly)
@@ -69,7 +73,11 @@ def get_leaderboard():
     response = {
         "leaderboard": [serialize_butterfly(butterfly) for butterfly in butterflies]
     }
-    return jsonify(response)
+    if response_format == "csv":
+        csv_contents = write_json_to_csv(response["leaderboard"])
+        return csv_contents
+    else:
+        return jsonify(response)
 
 
 @app.route("/matches", methods=["GET"])
@@ -77,6 +85,7 @@ def get_leaderboard():
 def get_matches():
     args = request.args
     count = args.get("count") or 50
+    response_format = args.get("format")
     with Session() as session:
         matches = (
             session.query(Match).order_by(Match.timestamp.desc()).limit(count).all()
@@ -84,7 +93,11 @@ def get_matches():
         butterflies = session.query(Butterfly).all()
         butterfly_id_to_data = {b.id: b for b in butterflies}
     response = {"matches": [serialize_match(m, butterfly_id_to_data) for m in matches]}
-    return jsonify(response)
+    if response_format == "csv":
+        csv_contents = write_json_to_csv(response["matches"])
+        return csv_contents
+    else:
+        return jsonify(response)
 
 
 @app.route("/match", methods=["POST"])
@@ -136,9 +149,14 @@ def create_match_result():
         old_winner_rating = winner.rating
         old_loser_rating = loser.rating
         comment = ""
-        is_voting_too_frequently, too_frequent_comment = is_user_voting_too_frequently(session, session_id)
-        is_voting_in_same_position, same_position_comment = is_user_voting_same_position(session, session_id, position)
-        if (is_voting_in_same_position or is_voting_too_frequently):
+        is_voting_too_frequently, too_frequent_comment = is_user_voting_too_frequently(
+            session, session_id
+        )
+        (
+            is_voting_in_same_position,
+            same_position_comment,
+        ) = is_user_voting_same_position(session, session_id, position)
+        if is_voting_in_same_position or is_voting_too_frequently:
             comment += too_frequent_comment
             comment += same_position_comment
             new_winner_rating = old_winner_rating
@@ -178,24 +196,46 @@ def create_match_result():
         }
     return jsonify(response)
 
+
 def is_user_voting_too_frequently(session, session_id):
-    voter_matches = session.query(Match).filter(Match.session_id == session_id).order_by(Match.timestamp.desc()).limit(NUM_MATCH_LOOKBACK)
+    voter_matches = (
+        session.query(Match)
+        .filter(Match.session_id == session_id)
+        .order_by(Match.timestamp.desc())
+        .limit(NUM_MATCH_LOOKBACK)
+    )
     if voter_matches.count() < NUM_MATCH_LOOKBACK:
         return (False, "not enough matches to check for frequency")
     now = datetime.datetime.now()
     total_elapsed_time = now - voter_matches[-1].timestamp
     elapsed_seconds = total_elapsed_time.total_seconds()
     if elapsed_seconds < MIN_MATCH_LOOKBACK_DURATION_SECONDS:
-        return (True, f'vote invalid due to voting too frequently. total elapsed seconds: {elapsed_seconds}')
+        return (
+            True,
+            f"vote invalid due to voting too frequently. total elapsed seconds: {elapsed_seconds}",
+        )
     return (False, "")
 
+
 def is_user_voting_same_position(session, session_id, position):
-    voter_matches = session.query(Match).filter(Match.session_id == session_id).order_by(Match.timestamp.desc()).limit(NUM_MATCH_LOOKBACK)
+    voter_matches = (
+        session.query(Match)
+        .filter(Match.session_id == session_id)
+        .order_by(Match.timestamp.desc())
+        .limit(NUM_MATCH_LOOKBACK)
+    )
     if voter_matches.count() < NUM_MATCH_LOOKBACK:
         return (False, "not enough matches to check for repeated position")
-    if len(set(m.position for m in voter_matches)) <= 1 and voter_matches[-1].position == position:
-        return (True, f'vote invalid due to voting the same position repeatedly. position: {position}')
+    if (
+        len(set(m.position for m in voter_matches)) <= 1
+        and voter_matches[-1].position == position
+    ):
+        return (
+            True,
+            f"vote invalid due to voting the same position repeatedly. position: {position}",
+        )
     return (False, "")
+
 
 def serialize_butterfly(butterfly):
     props = {
@@ -208,6 +248,8 @@ def serialize_butterfly(butterfly):
 
 
 def serialize_match(match, butterfly_id_to_data):
+    winner = butterfly_id_to_data.get(match.winner_id)
+    loser = butterfly_id_to_data.get(match.loser_id)
     props = {
         "timestamp": match.timestamp,
         "session_id": match.session_id,
@@ -218,6 +260,8 @@ def serialize_match(match, butterfly_id_to_data):
         "country": match.country,
         "region": match.region,
         "winner_id": match.winner_id,
+        "winner_name": winner.name,
+        "loser_name": loser.name,
         "winner": serialize_butterfly(butterfly_id_to_data.get(match.winner_id)),
         "loser_id": match.loser_id,
         "loser": serialize_butterfly(butterfly_id_to_data.get(match.loser_id)),
@@ -227,6 +271,19 @@ def serialize_match(match, butterfly_id_to_data):
         "loser_final_rating": match.loser_final_rating,
     }
     return props
+
+
+def write_json_to_csv(data):
+    output = io.StringIO()
+    writer = csv.writer(output)
+    for index, row in enumerate(data):
+        if index == 0:
+            # Writing headers of CSV file
+            header = row.keys()
+            writer.writerow(header)
+        # Writing data of CSV file
+        writer.writerow(row.values())
+    return output.getvalue()
 
 
 if __name__ == "__main__":
