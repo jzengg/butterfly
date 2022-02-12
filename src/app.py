@@ -90,9 +90,7 @@ def get_matches():
     session_id = args.get("session_id")
     response_format = args.get("format")
     with Session() as session:
-        query = (
-            session.query(Match).order_by(Match.timestamp.desc())
-        )
+        query = session.query(Match).order_by(Match.timestamp.desc())
         if session_id is not None:
             query = query.filter(Match.session_id == session_id)
         matches = query.limit(count).all()
@@ -112,17 +110,16 @@ def get_session_frauds():
     args = request.args
     count = args.get("count") or 50
     only_show_workers = args.get("only_show_workers") == "true"
+    show_all = args.get("show_all") == "true"
     with Session() as session:
-        query = (
-            session.query(SessionFraud)
-            .filter(
+        query = session.query(SessionFraud).order_by(SessionFraud.id.desc())
+        if not show_all:
+            query = query.filter(
                 or_(
                     SessionFraud.same_side_voting_count > 0,
                     SessionFraud.frequent_voting_count > 0,
                 )
             )
-            .order_by(SessionFraud.id.desc())
-        )
         if only_show_workers:
             query = query.filter(SessionFraud.worker_id != None)
         session_frauds = query.limit(count).all()
@@ -236,10 +233,10 @@ def create_session_worker():
     session_id = data["session_id"]
     worker_id = data["worker_id"]
     with Session() as session:
-        session_fraud = find_or_create_session_fraud(session, session_id)
-    response = {
-        "session_fraud": serialize_session_fraud(session_fraud),
-    }
+        session_fraud = find_or_create_session_fraud(session, session_id, worker_id=worker_id)
+        response = {
+            "session_fraud": serialize_session_fraud(session_fraud),
+        }
     return jsonify(response)
 
 
@@ -287,7 +284,7 @@ def is_user_voting_same_position(session, session_id, position):
     return (False, "")
 
 
-def find_or_create_session_fraud(session, session_id):
+def find_or_create_session_fraud(session, session_id, worker_id=None):
     session_fraud = (
         session.query(SessionFraud)
         .filter(SessionFraud.session_id == session_id)
@@ -295,7 +292,7 @@ def find_or_create_session_fraud(session, session_id):
     )
     if session_fraud is None:
         session_fraud = SessionFraud(
-            session_id=session_id, same_side_voting_count=0, frequent_voting_count=0
+            session_id=session_id, same_side_voting_count=0, frequent_voting_count=0, worker_id=worker_id
         )
         session.add(session_fraud)
     return session_fraud
