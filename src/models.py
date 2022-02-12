@@ -29,3 +29,13 @@ class Match(Base):
     loser_final_rating = Column(Integer, nullable=False)
     position = Column(Integer, nullable=False)
     comment = Column(String(255), nullable=True)
+
+
+class SessionFraud(Base):
+    __tablename__ = "session_frauds"
+    id = Column(Integer, primary_key=True)
+    worker_id = Column(Integer, index=True, nullable=True)
+    session_id = Column(String(255), nullable=False, index=True)
+    frequent_voting_count = Column(Integer, nullable=False, default=0)
+    same_side_voting_count = Column(Integer, nullable=False, default=0)
+    timestamp = Column(DateTime, nullable=False, server_default=func.now())

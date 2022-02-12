@@ -1,8 +1,9 @@
 from flask import Flask, jsonify, request, send_file
-from models import Butterfly, Match
+from models import Butterfly, Match, SessionFraud
 from elo import get_new_rating
 from db import Session
 from sqlalchemy.sql import func
+from sqlalchemy import or_
 from config import ADMIN_PASSWORD, API_KEY
 from flask_cors import CORS
 from functools import wraps
@@ -50,6 +51,7 @@ def reset_data():
     if data and data["admin_pw"] == ADMIN_PASSWORD:
         with Session() as session:
             matches = session.query(Match).delete()
+            session_frauds = session.query(SessionFraud).delete()
             session.query(Butterfly).update({"rating": INITIAL_RATING})
             session.commit()
             return "reset data", 200
@@ -100,6 +102,30 @@ def get_matches():
         return jsonify(response)
 
 
+@app.route("/session_frauds", methods=["GET"])
+@require_appkey
+def get_session_frauds():
+    args = request.args
+    count = args.get("count") or 50
+    only_show_workers = args.get("only_show_workers") == "true"
+    with Session() as session:
+        query = (
+            session.query(SessionFraud)
+            .filter(
+                or_(
+                    SessionFraud.same_side_voting_count > 0,
+                    SessionFraud.frequent_voting_count > 0,
+                )
+            )
+            .order_by(SessionFraud.id.desc())
+        )
+        if only_show_workers:
+            query = query.filter(SessionFraud.worker_id != None)
+        session_frauds = query.limit(count).all()
+    response = {"session_frauds": [serialize_session_fraud(s) for s in session_frauds]}
+    return jsonify(response)
+
+
 @app.route("/match", methods=["POST"])
 @require_appkey
 def create_match():
@@ -117,7 +143,9 @@ def create_match():
             .first()
         )
         if not opponent:
+            print("------------------------------")
             print("couldn't find opponent within 30 points, choosing random opponent")
+            print("------------------------------")
             opponent = (
                 session.query(Butterfly)
                 .filter(Butterfly.id != player.id)
@@ -197,6 +225,20 @@ def create_match_result():
     return jsonify(response)
 
 
+@app.route("/worker", methods=["POST"])
+@require_appkey
+def create_session_worker():
+    data = request.get_json()
+    session_id = data["session_id"]
+    worker_id = data["worker_id"]
+    with Session() as session:
+        session_fraud = find_or_create_session_fraud(session, session_id)
+    response = {
+        "session_fraud": serialize_session_fraud(session_fraud),
+    }
+    return jsonify(response)
+
+
 def is_user_voting_too_frequently(session, session_id):
     voter_matches = (
         session.query(Match)
@@ -210,9 +252,11 @@ def is_user_voting_too_frequently(session, session_id):
     total_elapsed_time = now - voter_matches[-1].timestamp
     elapsed_seconds = total_elapsed_time.total_seconds()
     if elapsed_seconds < MIN_MATCH_LOOKBACK_DURATION_SECONDS:
+        session_fraud = find_or_create_session_fraud(session, session_id)
+        session_fraud.frequent_voting_count += 1
         return (
             True,
-            f"vote invalid due to voting too frequently. total elapsed seconds: {elapsed_seconds}",
+            f"vote invalid due to voting too frequently. total elapsed seconds: {round(elapsed_seconds, 1)}",
         )
     return (False, "")
 
@@ -230,11 +274,37 @@ def is_user_voting_same_position(session, session_id, position):
         len(set(m.position for m in voter_matches)) <= 1
         and voter_matches[-1].position == position
     ):
+        session_fraud = find_or_create_session_fraud(session, session_id)
+        session_fraud.same_side_voting_count += 1
         return (
             True,
             f"vote invalid due to voting the same position repeatedly. position: {position}",
         )
     return (False, "")
+
+
+def find_or_create_session_fraud(session, session_id):
+    session_fraud = (
+        session.query(SessionFraud)
+        .filter(SessionFraud.session_id == session_id)
+        .first()
+    )
+    if session_fraud is None:
+        session_fraud = SessionFraud(
+            session_id=session_id, same_side_voting_count=0, frequent_voting_count=0
+        )
+        session.add(session_fraud)
+    return session_fraud
+
+
+def serialize_session_fraud(session_fraud):
+    props = {
+        "session_id": session_fraud.session_id,
+        "worker_id": session_fraud.worker_id,
+        "same_side_voting_count": session_fraud.same_side_voting_count,
+        "frequent_voting_count": session_fraud.frequent_voting_count,
+    }
+    return props
 
 
 def serialize_butterfly(butterfly):
