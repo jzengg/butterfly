@@ -300,6 +300,7 @@ def find_or_create_session_fraud(session, session_id):
 def serialize_session_fraud(session_fraud):
     props = {
         "session_id": session_fraud.session_id,
+        "timestamp": session_fraud.timestamp,
         "worker_id": session_fraud.worker_id,
         "same_side_voting_count": session_fraud.same_side_voting_count,
         "frequent_voting_count": session_fraud.frequent_voting_count,
