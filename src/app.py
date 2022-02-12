@@ -87,11 +87,15 @@ def get_leaderboard():
 def get_matches():
     args = request.args
     count = args.get("count") or 50
+    session_id = args.get("session_id")
     response_format = args.get("format")
     with Session() as session:
-        matches = (
-            session.query(Match).order_by(Match.timestamp.desc()).limit(count).all()
+        query = (
+            session.query(Match).order_by(Match.timestamp.desc())
         )
+        if session_id is not None:
+            query = query.filter(Match.session_id == session_id)
+        matches = query.limit(count).all()
         butterflies = session.query(Butterfly).all()
         butterfly_id_to_data = {b.id: b for b in butterflies}
     response = {"matches": [serialize_match(m, butterfly_id_to_data) for m in matches]}
