@@ -95,8 +95,19 @@ def get_matches():
             query = query.filter(Match.session_id == session_id)
         matches = query.limit(count).all()
         butterflies = session.query(Butterfly).all()
+        session_frauds = (
+            session.query(SessionFraud)
+            .filter(SessionFraud.session_id.in_((m.session_id for m in matches)))
+            .all()
+        )
+        session_id_to_session_fraud = {s.session_id: s for s in session_frauds}
         butterfly_id_to_data = {b.id: b for b in butterflies}
-    response = {"matches": [serialize_match(m, butterfly_id_to_data) for m in matches]}
+    response = {
+        "matches": [
+            serialize_match(m, butterfly_id_to_data, session_id_to_session_fraud)
+            for m in matches
+        ]
+    }
     if response_format == "csv":
         csv_contents = write_json_to_csv(response["matches"])
         return csv_contents
@@ -325,12 +336,16 @@ def serialize_butterfly(butterfly):
     return props
 
 
-def serialize_match(match, butterfly_id_to_data):
+def serialize_match(match, butterfly_id_to_data, session_id_to_session_fraud):
     winner = butterfly_id_to_data.get(match.winner_id)
     loser = butterfly_id_to_data.get(match.loser_id)
+    session_fraud = session_id_to_session_fraud.get(match.session_id)
+    worker_id = session_fraud.worker_id if session_fraud else None
+
     props = {
         "timestamp": match.timestamp,
         "session_id": match.session_id,
+        "worker_id": worker_id,
         "voter_ip": match.voter_ip,
         "comment": match.comment,
         "position": match.position,
