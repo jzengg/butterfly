@@ -34,7 +34,7 @@ class Match(Base):
 class SessionFraud(Base):
     __tablename__ = "session_frauds"
     id = Column(Integer, primary_key=True)
-    worker_id = Column(Integer, index=True, nullable=True)
+    worker_id = Column(String(255), index=True, nullable=True)
     session_id = Column(String(255), nullable=False, index=True)
     frequent_voting_count = Column(Integer, nullable=False, default=0)
     same_side_voting_count = Column(Integer, nullable=False, default=0)

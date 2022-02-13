@@ -233,7 +233,9 @@ def create_session_worker():
     session_id = data["session_id"]
     worker_id = data["worker_id"]
     with Session() as session:
-        session_fraud = find_or_create_session_fraud(session, session_id, worker_id=worker_id)
+        session_fraud = find_or_create_session_fraud(
+            session, session_id, worker_id=worker_id
+        )
         response = {
             "session_fraud": serialize_session_fraud(session_fraud),
         }
@@ -292,9 +294,13 @@ def find_or_create_session_fraud(session, session_id, worker_id=None):
     )
     if session_fraud is None:
         session_fraud = SessionFraud(
-            session_id=session_id, same_side_voting_count=0, frequent_voting_count=0, worker_id=worker_id
+            session_id=session_id,
+            same_side_voting_count=0,
+            frequent_voting_count=0,
+            worker_id=worker_id,
         )
         session.add(session_fraud)
+        session.commit()
     return session_fraud
 
 
