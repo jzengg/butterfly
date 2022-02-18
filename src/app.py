@@ -120,6 +120,7 @@ def get_matches():
 def get_session_frauds():
     args = request.args
     count = args.get("count") or 50
+    response_format = args.get("format")
     only_show_workers = args.get("only_show_workers") == "true"
     show_all = args.get("show_all") == "true"
     with Session() as session:
@@ -135,7 +136,11 @@ def get_session_frauds():
             query = query.filter(SessionFraud.worker_id != None)
         session_frauds = query.limit(count).all()
     response = {"session_frauds": [serialize_session_fraud(s) for s in session_frauds]}
-    return jsonify(response)
+    if response_format == "csv":
+        csv_contents = write_json_to_csv(response["session_frauds"])
+        return csv_contents
+    else:
+        return jsonify(response)
 
 
 @app.route("/match", methods=["POST"])
