@@ -188,6 +188,7 @@ def create_match_result():
     city = data["city"]
     region = data["region"]
     position = data["position"]
+    worker_id = data.get("worker_id")
     with Session() as session, session.begin():
         winner = session.query(Butterfly).get(winner_id)
         loser = session.query(Butterfly).get(loser_id)
@@ -219,6 +220,7 @@ def create_match_result():
             )
         match = Match(
             session_id=session_id,
+            worker_id=worker_id,
             voter_ip=voter_ip,
             position=position,
             comment=comment,
@@ -345,7 +347,10 @@ def serialize_match(match, butterfly_id_to_data, session_id_to_session_fraud):
     winner = butterfly_id_to_data.get(match.winner_id)
     loser = butterfly_id_to_data.get(match.loser_id)
     session_fraud = session_id_to_session_fraud.get(match.session_id)
-    worker_id = session_fraud.worker_id if session_fraud else None
+    if match.worker_id is not None:
+        worker_id = match.worker_id
+    else:
+        worker_id = session_fraud.worker_id if session_fraud else None
 
     props = {
         "timestamp": match.timestamp,

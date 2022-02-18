@@ -29,6 +29,7 @@ class Match(Base):
     loser_final_rating = Column(Integer, nullable=False)
     position = Column(Integer, nullable=False)
     comment = Column(String(255), nullable=True)
+    worker_id = Column(String(255), nullable=True)
 
 
 class SessionFraud(Base):
