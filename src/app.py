@@ -88,11 +88,14 @@ def get_matches():
     args = request.args
     count = args.get("count") or 50
     session_id = args.get("session_id")
+    worker_id = args.get("worker_id")
     response_format = args.get("format")
     with Session() as session:
         query = session.query(Match).order_by(Match.timestamp.desc())
         if session_id is not None:
             query = query.filter(Match.session_id == session_id)
+        if worker_id is not None:
+            query = query.filter(Match.worker_id == worker_id)
         matches = query.limit(count).all()
         butterflies = session.query(Butterfly).all()
         session_frauds = (
